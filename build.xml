@@ -1,33 +1,17 @@
 <?xml version="1.0"?>
-<project name="Abbott" basedir="." default="help">
- 	<target name="create-new-project" description="Creates new project">
- 		<input message="Directory Name (no spaces):" addproperty="project.dir" />
- 		<input message="Project Name (no spaces):" addproperty="project.name" />
- 		<mkdir dir="${project.dir}/${project.name}"/>
- 	 <!-- 	<mkdir dir="${project.dir}/${project.name}/deployments"/>
- 		<mkdir dir="${project.dir}/${project.name}/queries"/>
- 		<mkdir dir="${project.dir}/${project.name}/scripts"/>
- 		<mkdir dir="${project.dir}/${project.name}/retrieve"/>
- 		<mkdir dir="${project.dir}/${project.name}/log"/>
- 		<mkdir dir="${project.dir}/${project.name}/data"/>
-  <mkdir dir="${project.dir}/${project.name}/profiles"/>
-    <mkdir dir="${project.dir}/${project.name}/profiles/config"/>
-    <mkdir dir="${project.dir}/${project.name}/profiles/src"/>-->
-    
-    <mkdir dir="${project.dir}/${project.name}/config"/>
- 		<mkdir dir="${project.dir}/${project.name}/diff"/>
- 		<copy todir="${project.dir}/${project.name}/">
-	    	<fileset dir="common/project-template"/>
-	  	</copy>
-	  	<mkdir dir="${project.dir}/${project.name}/config/maps"/>
- 	</target>
-
- 	<target name="help">     
- 		<java classname="org.apache.tools.ant.Main">         
- 			<arg value="-projecthelp" />         
- 			<arg value="-buildfile" />         
- 			<arg value="${ant.file}" />     
- 		</java> 
- 	</target>
+<project basedir="." default="help" name="Salesforce project build">
+	<target description="Creates new project" name="create-new-project">
+		<input addproperty="project.name" message="Project Name (no spaces):"/>
+		<mkdir dir="${project.name}"/>
+		<copy todir="${project.name}/">
+			<fileset dir="common/project-template"/>
+		</copy>
+	</target>
+	<target name="help">
+		<java classname="org.apache.tools.ant.Main">
+			<arg value="-projecthelp"/>
+			<arg value="-buildfile"/>
+			<arg value="${ant.file}"/>
+		</java>
+	</target>
 </project>
-
