@@ -1,0 +1,330 @@
+<?xml version="1.0"?>
+<project xmlns:sf="antlib:com.salesforce" name="sf" basedir=".">
+ 	<import file="${basedir}/../../common/lib/ant-salesforce.xml"/>
+    <taskdef uri="antlib:com.salesforce" resource="com/salesforce/antlib.xml" classpath="${basedir}/../../common/lib/ant-salesforce.jar"/>
+ <!--java -cp DataLoader.jar com.salesforce.dataloader.security.EncryptionUtil -g -->
+   <macrodef name="make-load">
+        <attribute name="object" />
+        <attribute name="operation"/>
+        <attribute name="map"/>
+        <attribute name="load"/>
+        <attribute name="process-file" default="normal"/>
+        <attribute name="extid" default=""/>
+        <attribute name="soql" default=""/>
+        <attribute name="bulkapi" default=""/>
+        <sequential>
+            <tstamp>
+                <format property="tstamp" pattern="yyyyMMdd_HHmmss"/>
+            </tstamp>
+            <mkdir dir="tmp-@{operation}"/>
+            <copy file="config/@{process-file}-process-conf.xml" tofile="tmp-@{operation}/config/process-conf.xml" overwrite="true" failonerror="true"/>
+            <copy file="config/config.properties" tofile="tmp-@{operation}/config/config.properties" overwrite="true" failonerror="true"/>
+            <java classname="com.salesforce.dataloader.security.EncryptionUtil" classpath="${basedir}/../common/lib/Dataloader.jar" failonerror="true" outputproperty="encpassword1">
+                <arg line="-e ${sf.password}"/>
+            </java>
+            <propertyregex property="encpassword"
+              input="${encpassword1}"
+              regexp="\s(\w+)$"
+              select="\1" />
+            <replace file="tmp-@{operation}/config/process-conf.xml">
+                <replacefilter token="_operation_" value="@{operation}"/>
+                <replacefilter token="_username_" value="${sf.username}"/>
+                <replacefilter token="_password_" value="${encpassword}"/>
+                <replacefilter token="_serverurl_" value="${sf.serverurl}"/>
+                <replacefilter token="_object_" value="@{object}"/>
+                <replacefilter token="_map_" value="@{map}"/>
+                <replacefilter token="_infile_" value="@{load}"/>
+                <replacefilter token="_extid_" value="@{extid}"/>
+                <replacefilter token="_soql_" value="@{soql}"/>
+                <replacefilter token="_tstamp_" value="${tstamp}"/>
+                <replacefilter token="_bulkapi_" value="@{bulkapi}"/>
+            </replace>
+            <java classname="com.salesforce.dataloader.process.ProcessRunner" classpath="${basedir}/../common/lib/Dataloader.jar" failonerror="true">
+                <sysproperty key="salesforce.config.dir" value="tmp-@{operation}/config"/>
+                <arg line="process.name=@{object}@{operation}"/>
+            </java>
+            <delete dir="tmp-@{operation}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sfupsert">
+        <attribute name="object"/>
+        <attribute name="map"/>
+        <attribute name="load"/>
+        <attribute name="extid"/>
+        <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="upsert" map="@{map}" load="@{load}" process-file="upsert" extid="@{extid}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sfextract">
+        <attribute name="object"/>
+        <attribute name="load"/>
+        <attribute name="soql"/>
+        <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="extract" map="" load="@{load}" process-file="extract" soql="@{soql}" bulkapi="@{bulkapi}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sfinsert">
+        <attribute name="object"/>
+        <attribute name="map"/>
+        <attribute name="load"/>
+        <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="insert" map="@{map}" load="@{load}"  bulkapi="@{bulkapi}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sfupdate">
+        <attribute name="object"/>
+        <attribute name="map"/>
+        <attribute name="load"/>
+         <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="update" map="@{map}" load="@{load}"  bulkapi="@{bulkapi}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sfdelete">
+        <attribute name="object"/>
+        <attribute name="map"/>
+        <attribute name="load"/>
+        <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="delete" map="@{map}" load="@{load}"  bulkapi="@{bulkapi}"/>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="sftouch">
+        <attribute name="object"/>
+        <attribute name="bulkapi" default="false"/>
+        <sequential>
+            <make-load object="@{object}" operation="extract" map="" load="touchload" soql="select Id from @{object}" process-file="extract" bulkapi="@{bulkapi}"/>
+            <make-load object="@{object}" operation="update" map="config/map/id_map" load="touchload" bulkapi="@{bulkapi}"/>
+            <delete file="touchload"/>
+        </sequential>
+    </macrodef>
+
+    <target name="insert">
+        <sfinsert object="${object}" map="${map}" load="${load}" bulkapi="false"/>
+    </target>
+
+    <target name="update">
+        <sfupdate object="${object}" map="${map}" load="${load}" bulkapi="false"/>
+    </target>
+
+    <target name="delete">
+        <sfdelete object="${object}" map="config/map/id_map" load="${load}" bulkapi="false"/>
+    </target>
+
+    <target name="extract">
+        <loadfile property="soql" srcFile="queries/${soqlFile}"/>
+        <sfextract object="${object}" load="${load}" soql="${soql}" bulkapi="${bulkapi}"/>
+    </target>
+
+    <target name="upsert">
+        <sfupsert object="${object}" map="${map}" load="${load}" extid="${extid}" bulkapi="false"/>
+    </target>
+
+    <target name="touch">
+        <sfextract object="${object}" load="touchload" soql="select Id from ${object}" bulkapi="false"/>
+        <sfupdate object="${object}" map="config/map/id_map" load="touchload" bulkapi="false"/>
+        <delete file="touchload"/>
+    </target>
+
+    <target name="make-new-deployment">
+        <input message="Deployment Name (no spaces):" addproperty="deployment.name" />
+        <mkdir dir="deployments/${deployment.name}"/>
+        <copy toFile="deployments/${deployment.name}/package.xml" file="package.xml"/>
+    </target>
+
+    <target name="retrieve">
+        <sf:retrieve username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" retrieveTarget="${root}" unpackaged="${root}/package.xml"/>
+    </target>
+
+
+    <target name="deploy">
+        <condition property="jobs.schedule" value="false">
+           <not>
+              <isset property="jobs.schedule"/>
+           </not>
+        </condition>
+
+        <executeApex
+            username="${sf.username}"
+            password="${sf.password}"
+            instanceurl="${sf.instanceurl}">
+            <![CDATA[
+              for (crontrigger ct : [ select id from crontrigger where cronjobdetail.jobtype='7']) {
+                    System.abortJob(ct.id);
+                }
+            ]]>
+        </executeApex>
+        <property name="root" value="deployments/main"/>
+        <antcall target="sf.deploy-folder"/>
+        <antcall target="sf.schedule-jobs"/>
+    </target>
+    <target name="deploy-folder">
+        <echo message="${root}"/>
+         <antcall target="sf.diff"/>
+         <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="${root}"/>
+    </target>
+
+    <target name="delete-folder">
+        <echo message="${root}"/>
+         <antcall target="sf.diff"/>
+         <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="${root}"/>
+    </target>
+
+    <target name="check-deploy">
+        <antcall target="sf.diff"/>
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="${root}"
+            checkOnly="true" runAllTests="false"/>
+    </target>
+
+    <target name="check-unit-tests">
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="${root}"
+            checkOnly="true" runAllTests="true" />
+    </target>
+
+
+     <target name="schedule-jobs" if="jobs.schedule">
+          <executeApex
+            username="${sf.username}"
+            password="${sf.password}"
+            instanceurl="${sf.instanceurl}">
+            <![CDATA[
+               SetupData.scheduleJobs();
+            ]]>
+        </executeApex>
+    </target>
+    <target name="execute-script">
+        <loadfile property="apex" srcFile="scripts/${scriptName}"/>
+          <executeApex
+            username="${sf.username}"
+            password="${sf.password}"
+            instanceurl="${sf.instanceurl}">
+            <![CDATA[
+               ${apex}
+            ]]>
+        </executeApex>
+    </target>
+
+    <target name="extract-form-mapping">
+        <loadfile property="soql" srcFile="${basedir}/../common/queries/FormMapping"/>
+        <sfextract object="Form_Mapping__c" load="data/form/Form_Mapping__c.csv" soql="${soql}" bulkapi="false"/>
+    </target>
+    <target name="load-form-mapping">
+        <sfinsert object="Form_Mapping__c" load="data/form/Form_Mapping__c.csv" map="${basedir}/../common/map/formmapping" bulkapi="false"/>
+    </target>
+    <target name="extract-form">
+        <loadfile property="formSOQL" srcFile="${basedir}/../common/queries/Form"/>
+        <loadfile property="sectionSOQL" srcFile="${basedir}/../common/queries/FormSection"/>
+        <loadfile property="questionsSOQL" srcFile="${basedir}/../common/queries/FormQuestion"/>
+        <loadfile property="picklistSOQL" srcFile="${basedir}/../common/queries/FormAnswerPicklist"/>
+        <loadfile property="rangeSOQL" srcFile="${basedir}/../common/queries/FormQuestionRange"/>
+        <loadfile property="apex" srcFile="${basedir}/../common/scripts/set_form_external_ids"/>
+         <executeApex
+            username="${sf.username}"
+            password="${sf.password}"
+            instanceurl="${sf.instanceurl}">
+            <![CDATA[
+               ${apex}
+            ]]>
+        </executeApex>
+        <mkdir dir="data/form"/>
+        <sfextract object="Form__c" load="data/form/${form}.csv" soql="${formSOQL}" bulkapi="false"/>
+        <sfextract object="Form_Section__c" load="data/form/${form}-Section.csv" soql="${sectionSOQL}" bulkapi="false"/>
+        <sfextract object="Form_Question__c" load="data/form/${form}-Question.csv" soql="${questionsSOQL}" bulkapi="false"/>
+        <sfextract object="Form_Answer_Picklist__c" load="data/form/${form}-Picklists.csv" soql="${picklistSOQL}" bulkapi="false"/>
+         <sfextract object="Form_Question_Range__c" load="data/form/${form}-Range.csv" soql="${rangeSOQL}" bulkapi="false"/>
+    </target>
+
+    <target name="load-form">
+        <sfupsert object="Form__c" load="data/form/${form}.csv" map="${basedir}/../common/map/form" extId="External_Id__c" bulkapi="false"/>
+        <sfupsert object="Form_Section__c" load="data/form/${form}-Section.csv" map="${basedir}/../common/map/formsection" extId="External_Id__c" bulkapi="false"/>
+        <sfupsert object="Form_Question__c" load="data/form/${form}-Question.csv" map="${basedir}/../common/map/formquestion" extId="External_Id__c" bulkapi="false"/>
+        <sfupsert object="Form_Answer_Picklist__c" load="data/form/${form}-Picklists.csv" map="${basedir}/../common/map/formanswerpicklist" extId="Id" bulkapi="false"/>
+        <sfupsert object="Form_Question_Range__c" load="data/form/${form}-Range.csv" map="${basedir}/../common/map/formquestionrange" extId="Id" bulkapi="false"/>
+    </target>
+
+    <target name="backup-files">
+        <tstamp>
+             <format property="time.stamp" pattern="yyyyMMdd_HHmmss"/>
+        </tstamp>
+        <mkdir dir="deployments/backup"/>
+        <mkdir dir="deployments/backup/${time.stamp}"/>
+        <copy file="${root}/package.xml" tofile="deployments/backup/${time.stamp}/package.xml"/>
+        <sf:retrieve username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" retrieveTarget="deployments/backup/${time.stamp}" unpackaged="deployments/backup/${time.stamp}/package.xml"/>
+    </target>
+
+    <target name="diff" unless="skip.diff">
+        <tstamp>
+             <format property="time.stamp" pattern="yyyyMMdd_HHmmss"/>
+        </tstamp>
+        <antcall target="sf.backup-files"/>
+         <exec executable="diff"  osfamily="unix" output="diff/${time.stamp}.diff" outputproperty="diff">
+             <arg value="-riw"/>
+             <arg value="--exclude=*package.xml"/>
+             <arg value="deployments/backup/${time.stamp}"/>
+             <arg value="${root}"/>
+         </exec>
+         <exec executable="subl" osfamily="unix" >
+            <arg value="diff/${time.stamp}.diff"/>
+         </exec>
+    </target>
+
+    <target name="get-profiles-from-prod" unless="skip.refresh">
+        <echo message="Skip refresh set to: ${skip.refresh}"/>
+        <loadproperties srcFile="prod"/>
+         <exec executable="ruby"  osfamily="unix">
+            <arg value="${basedir}/../common/scripts/generate_profile_package_xml.rb"/>
+            <arg value="${basedir}"/>
+            <arg value="true"/>
+            <arg value="${basedir}/profiles/src/"/>
+         </exec>
+        <!--get everything from prod so that the profile files generate contain all objects/fields, etc-->
+        <sf:retrieve username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" retrieveTarget="profiles/src" unpackaged="profiles/src/package.xml"/>
+    </target>
+    <target name="generate-updated-profiles">
+        <antcall target="sf.get-profiles-from-prod"/>
+        <delete dir="profiles/updates" quiet="false"/>
+        <mkdir dir="profiles/updates"/>
+        <mkdir dir="profiles/updates/profiles"/>
+
+        <exec executable="ruby"  osfamily="unix">
+            <arg value="${basedir}/../common/scripts/generate_profile_package_xml.rb"/>
+            <arg value="${basedir}"/>
+            <arg value="false"/>
+            <arg value="${basedir}/profiles/updates/"/>
+         </exec>
+
+        <exec executable="ruby"  osfamily="unix">
+            <arg value="${basedir}/../common/scripts/update_profiles.rb"/>
+            <arg value="${basedir}"/>
+         </exec>
+    </target>
+     <target name="load-property-file" if="isPropFileAvaliable">
+         <loadproperties srcFile="${env.name}"/>
+     </target>
+    <target name="edit-environment">
+        <input message="Environment Name (no spaces):" addproperty="env.name" />
+        <available file="${env.name}" property="isPropFileAvaliable" />
+        <antcall target="sf.load-property-file"/>
+        <property name="sf.username" value=""/>
+        <property name="sf.password" value=""/>
+        <property name="sf.instanceurl" value="https://na8.salesforce.com"/>
+        <input message="User Name:" addproperty="username" defaultvalue="${sf.username}"/>
+        <input message="Password + Security Token:" addproperty="password" defaultvalue="${sf.password}"/>
+        <input message="Instance Url" addproperty="instanceurl" defaultvalue="${sf.instanceurl}"/>
+        <propertyfile file="${env.name}" >
+          <entry  key="sf.username" value="${username}"/>
+          <entry  key="sf.password" value="${password}"/>
+          <entry  key="sf.instanceurl" value="${instanceurl}"/>
+        </propertyfile>
+    </target>
+</project>
+

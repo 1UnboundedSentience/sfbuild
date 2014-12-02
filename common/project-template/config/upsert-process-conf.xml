@@ -1,0 +1,22 @@
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+<beans>
+	<bean id="_object__operation_" class="com.salesforce.dataloader.process.ProcessRunner" singleton="false">
+		<description>Load of _object_ object.</description>
+		<property name="name" value="_object_"/>
+		<property name="configOverrideMap">
+			<map>
+				<entry key="dataAccess.name" value="_infile_"/>
+				<entry key="process.mappingFile" value="_map_"/>
+				<entry key="process.operation" value="_operation_"/>
+				<entry key="sfdc.entity" value="_object_"/>
+				<entry key="sfdc.externalIdField" value="_extid_"/>
+				<entry key="process.outputError" value="log/_object_ _operation_ Error_tstamp_.csv"/>
+				<entry key="process.outputSuccess" value="log/_object_ _operation_ Success_tstamp_.csv"/> 
+				<entry key="sfdc.username" value="_username_"/> 
+				<entry key="sfdc.password" value="_password_"/> 
+				<entry key="sfdc.endpoint" value="_serverurl_"/> 
+				<entry key="sfdc.useBulkApi" value="_bulkapi_"/>
+			</map>
+		</property>
+	</bean>
+</beans>

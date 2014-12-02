@@ -1,0 +1,3 @@
+for (crontrigger ct : [ select id from crontrigger where cronjobdetail.jobtype='7']) {
+	System.abortJob(ct.id);
+}
