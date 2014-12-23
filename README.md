@@ -22,6 +22,7 @@ git clone https://github.com/timwatt/sfbuild.git
 
 ## Project setup ##
 ant create-new-project
+
 Buildfile: ~/build.xml
 
 create-new-project:
@@ -34,5 +35,13 @@ client/client1
 BUILD SUCCESSFUL
 Total time: 14 seconds
 
+## Daily Use ##
+From the newly created projected folder you can run a variety of commands:
+ * sf.retrieve: will perform normal metadata api retrieve from the selected package.xml
+ * sf.diff: backups target files that are in package.xml and automatically runs diff to highlight changes
+ * sf.check-deploy: runs sf.diff and then also does a metadata api deploy with checkOnly (ensure package is deployable), and run unit tests
+ * sf.deploy-folder: runs sf.diff and then also does a metadata api deploy to target org
 
+
+Also contains various targets for performing data loads, etc directly from ANT. This way you can build out a deployment script in ANT that deploys base objects, loads necessary reference data, then performs additional deploys as necessary.
 
